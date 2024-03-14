@@ -72,7 +72,9 @@ async def pull(interaction: discord.Interaction):
 
     new_next_pull_time = (current_time + datetime.timedelta(minutes=10)).replace(microsecond=0)
 
-    cursor.execute("UPDATE userdata SET NextPull = %s WHERE UserID = %s", (new_next_pull_time, user_id))
+    #cursor.execute("UPDATE userdata SET NextPull = %s WHERE UserID = %s", (new_next_pull_time, user_id))
+    cursor.execute("UPDATE userdata SET NextPull = %s, Currency = Currency + 1 WHERE UserID = %s",
+                   (new_next_pull_time, user_id))
     mydb.commit()
 
     card = get_random_card()
