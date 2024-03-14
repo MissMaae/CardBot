@@ -4,6 +4,7 @@ import discord
 import mysql.connector
 import random
 import datetime
+import typing
 from io import BytesIO
 from dotenv import load_dotenv
 from discord import Intents, Client, Message, app_commands
@@ -20,6 +21,7 @@ load_dotenv()
 TOKEN: Final[str] = os.getenv('DISCORD_TOKEN')
 print(TOKEN)
 
+currencyName = "screamcoin"
 
 intents: Intents = discord.Intents.all()
 #intents: Intents = Intents.default()
@@ -28,8 +30,6 @@ intents: Intents = discord.Intents.all()
 bot: commands.Bot = commands.Bot(command_prefix="!", intents=intents)
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
-
 mydb = mysql.connector.connect(
     host = 'localhost',
     user = 'root',
@@ -37,20 +37,6 @@ mydb = mysql.connector.connect(
     database = 'cardsdb'
 )
 cursor = mydb.cursor(dictionary = True)
-"""
-async def send_message(message: Message, user_message: str) -> None:
-    if not user_message:
-        print('(Message was empty because intents were not enabled probably')
-        return
-
-    if is_private := user_message[0] == '?':
-        user_message = user_message[1:]
-    try:
-        response: str = get_response(user_message)
-        await message.author.send(response) if is_private else await message.channel.send(response)
-    except Exception as e:
-        print(e)
-"""
 
 @bot.event
 async def on_ready():
@@ -62,16 +48,6 @@ async def on_ready():
         print(f"Synced {len(synced)} command(s)")
     except Exception as e:
         print(e)
-
-#@bot.tree.command(name = "hello")
-#async def hello(interaction: discord.Interaction):
-#    await interaction.response.send_message(content=f"Hey {interaction.user.mention}! This is a slash command!",
-#        file=discord.File(image_buffer, filename="result_image.png"))
-
-@bot.tree.command(name = "say")
-@app_commands.describe(thing_to_say = "What should I say?")
-async def say(interaction: discord.Interaction, thing_to_say : str):
-    await interaction.response.send_message(f"Hey {interaction.user.name}! said: `{thing_to_say}`")
 
 @bot.tree.command(name = "pull")
 async def pull(interaction: discord.Interaction):
@@ -129,15 +105,13 @@ async def pull(interaction: discord.Interaction):
     flavourText = card['FlavourText']
     cardRarity = card['Rarity'].lower()
 
-    messageText = f"You got a {cardname} card. It is numbered {cardNum}! Its rarity is {cardRarity}"
+    messageText = f"You got a {cardname} card. It is numbered {cardNum}! Its rarity is {cardRarity}."
 
     if foil_value == 1:
         messageText += " Ooh, its also foil! Nice!"
     messageText += f"\n *{flavourText}*"
     await interaction.response.send_message(messageText,
                                             file=discord.File(cardImage, filename="Congratulations.png"))
-
-
 
 @bot.tree.command(name="mycards")
 async def mycards(interaction: discord.Interaction):
@@ -151,71 +125,6 @@ async def mycards(interaction: discord.Interaction):
         await interaction.response.send_message(getOwnedCardsString(page, listownedcards(userID)), view=PrevNextButton(page, rows))
 
 
-"""
-    # Get the UserID from the interaction
-    user_id = getID(interaction)
-
-    # Construct the SQL query to retrieve user's cards with additional information
-    query = (
-        "SELECT ci.CardID, c.Name, ci.Foil, ci.InstanceCount AS Number, c.Rarity, c.Faction AS Type "
-        "FROM cardinstances ci "
-        "JOIN cards c ON ci.CardID = c.CardID "
-        "WHERE ci.UserID = %s"
-    )
-
-    # Execute the query with the provided UserID
-    cursor.execute(query, (user_id,))
-    rows = cursor.fetchall()
-
-    # Check if any cards were found
-    if rows:
-        # Prepare the response message
-        response_message = "Your cards:\n```\n"
-        response_message += "{:<10} {:<30} {:<10} {:<10} {:<10} {:<10}\n".format(
-            "CardID", "Name", "Version", "Number", "Rarity", "Type"
-        )
-
-        # Get the index of the current display
-        page = 0
-        max_page = (len(rows) - 1) // 10
-        start_index = page * 10
-        end_index = start_index + 10
-
-        for row in rows[start_index:end_index]:
-            card_id = row["CardID"]
-            card_name = row["Name"]
-            version = "Foil" if row["Foil"] else "Regular"
-            instance_count = row["Number"]
-            rarity = row["Rarity"]
-            card_type = row["Type"]
-
-            response_message += "{:<10} {:<30} {:<10} {:<10} {:<10} {:<10}\n".format(
-                card_id, card_name, version, instance_count, rarity, card_type
-            )
-
-        response_message += "```"
-
-
-        # Send the response message with buttons
-        await interaction.followup.send(response_message)
-    else:
-        response_message = "You don't have any cards yet."
-
-        # Send the response message
-        await interaction.response.send_message(response_message)
-    """
-
-"""
-class PrevNextButton(discord.ui.View):
-    def __init__(self, page: int, interaction):
-        super().__init__()
-        self.page = page
-        self.interaction = interaction
-        self.add_item(discord.ui.button(label="<-", style=discord.ButtonStyle.primary))
-        self.add_item(discord.ui.button(label="->", style=discord.ButtonStyle.primary))
-
-    @discord.ui.button(label = "")
-"""
 class PrevNextButton(discord.ui.View):
     def __init__(self, page: int, rows):
         super().__init__()
@@ -240,17 +149,6 @@ class PrevNextButton(discord.ui.View):
         await interaction.response.defer()
 
 
-
-    """
-    async def on_button_click(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if button.custom_id == "prev_button":
-            self.page -= 1
-        elif button.custom_id == "next_button":
-            self.page += 1
-        print(self.page)
-        await interaction.response.edit_message(content=listownedcards(self.page, self.interaction), view=self)
-    """
-
 def listownedcards(user_id : int):
     # Get the UserID from the interaction
 
@@ -258,7 +156,7 @@ def listownedcards(user_id : int):
     # Construct the SQL query to retrieve user's cards with additional information
 
     query = (
-        "SELECT ci.CardID, c.Name, ci.Foil, ci.InstanceCount AS Number, c.Rarity, c.Faction AS Type "
+        "SELECT ci.CardID, ci.InstanceID, c.Name, ci.Foil, ci.InstanceCount AS Number, ci.SalePrice AS Market_price , c.Rarity, c.Faction AS Type "
         "FROM cardinstances ci "
         "JOIN cards c ON ci.CardID = c.CardID "
         "WHERE ci.UserID = %s"
@@ -272,6 +170,7 @@ def listownedcards(user_id : int):
     rows = cursor.fetchall()
     return rows
 
+
 def getOwnedCardsString(page: int, rows):
     max_page = (len(rows) - 1) // 10
     start_index = page * 10
@@ -282,8 +181,8 @@ def getOwnedCardsString(page: int, rows):
     if rows:
         # Prepare the response message
         response_message = f"Page {page + 1} of {max_page + 1}\n```\n"
-        response_message += "{:<10} {:<30} {:<10} {:<10} {:<10} {:<10}\n".format(
-            "CardID", "Name", "Version", "Number", "Rarity", "Type"
+        response_message += "{:<10} {:<10} {:<30} {:<10} {:<10} {:<10} {:<10} {:<10}\n".format(
+            "CardID", "InstanceID", "Name", "Version", "Number", "Rarity", "Type", "Market price"
         )
 
         # Get the index of the current display
@@ -293,14 +192,16 @@ def getOwnedCardsString(page: int, rows):
 
         for row in rows[start_index:end_index]:
             card_id = row["CardID"]
+            instance_id = row["InstanceID"]
             card_name = row["Name"]
             version = "Foil" if row["Foil"] else "Regular"
             instance_count = row["Number"]
             rarity = row["Rarity"]
             card_type = row["Type"]
+            sale_price = row["Market_price"] if row["Market_price"] else "Not for sale"
 
-            response_message += "{:<10} {:<30} {:<10} {:<10} {:<10} {:<10}\n".format(
-                card_id, card_name, version, instance_count, rarity, card_type
+            response_message += "{:<10} {:<10} {:<30} {:<10} {:<10} {:<10} {:<10} {:<10}\n".format(
+                card_id, instance_id, card_name, version, instance_count, rarity, card_type, sale_price
             )
 
         response_message += "```"
@@ -308,24 +209,36 @@ def getOwnedCardsString(page: int, rows):
     return None
 
 
-"""
-@client.event
-async def on_message(message: Message) -> None:
-    if message.author == client.user:
-        return
-    username: str = str(message.author)
-    user_message : str = message.content
-    channel: str = str(message.channel)
+def getCardList():
+    # Query for a random card of the determined rarity
+    query = f"SELECT Name FROM cards"
+    cursor.execute(query)
 
-    print(f'[{channel}] {username}: "{user_message}"')
-    await send_message(message, user_message)
+    # Fetch the result
+    return cursor.fetchall()
 
-@bot.command()
-async def set(ctx):
-    sql = "INSERT INTO users (ID, BALANCE) VALUES(%s, %s)"
-    val = (ctx.author.id, "50")
-    cursor.execute(sql, val)
-"""
+allcards = getCardList()
+
+@bot.tree.command()
+async def viewcard(interaction: discord.Interaction, cardname: str):
+    query = f"SELECT * FROM cards WHERE Name = '{cardname}' LIMIT 1"
+    cursor.execute(query)
+    foundCard = cursor.fetchone()
+    messageText = f"{foundCard['Name']} \n *{foundCard['FlavourText']}*"
+    await interaction.response.send_message(messageText,
+                                            file=discord.File(getCardImage(foundCard,0), filename="CardFound.png"))
+
+@viewcard.autocomplete("cardname")
+async def viewcard_autocompletion(
+    interaction: discord.Interaction,
+    current: str
+) -> typing.List[app_commands.Choice[str]]:
+    data = []
+    #print(allcards)
+    for card_choice in allcards:
+        card_name = card_choice['Name']
+        data.append(app_commands.Choice(name=card_name, value=card_name))
+    return data
 
 def get_random_card():
     # Define the probabilities for each rarity level
@@ -348,7 +261,7 @@ def get_random_card():
         rarity_roll -= probability
 
     # Query for a random card of the determined rarity
-    query = f"SELECT * FROM cards WHERE Rarity = '{rarity}' ORDER BY RAND() LIMIT 1"
+    query = f"SELECT * FROM cards WHERE Rarity = '{rarity}' AND Active = 1 ORDER BY RAND() LIMIT 1"
 
     # Execute the query
     cursor.execute(query)
@@ -440,7 +353,219 @@ def getID(interaction: discord.Interaction) -> int:
         mydb.commit()  # Commit the changes to the database
         return cursor.lastrowid
 
+
+@bot.tree.command()
+async def viewmycard(interaction: discord.Interaction, instanceid: int):
+    query = (
+        "SELECT ci.CardID, ci.InstanceID, c.Name,c.FlavourText, ci.Foil, ci.InstanceCount, c.Rarity, c.Picture , c.Faction "
+        "FROM cardinstances ci "
+        "JOIN cards c ON ci.CardID = c.CardID "
+        "WHERE ci.InstanceID = %s"
+
+    )
+    cursor.execute(query, (instanceid,))
+
+    foundCard = cursor.fetchone()
+
+    print(foundCard)
+    messageText = f"{foundCard['Name']} \n *{foundCard['FlavourText']}*"
+    await interaction.response.send_message(messageText,file=discord.File(getCardImage(foundCard, foundCard['Foil']), filename="CardFound.png"))
+
+@bot.tree.command()
+async def market_buy(interaction: discord.Interaction, instanceid: int):
+    try:
+
+        query = f"SELECT * FROM cardinstances WHERE InstanceID = '{instanceid}' AND SalePrice IS NOT NULL"
+        cursor.execute(query)
+        foundCard = cursor.fetchall()[0]
+
+        if not foundCard:
+            await interaction.response.send_message("A card was not found or the card is not for sale.")
+            return None
+
+        discord_id = interaction.user.id
+        query = cursor.execute(f"SELECT * FROM userdata WHERE DiscordID = '{discord_id}' LIMIT 1")
+        cursor.execute(query)
+        myuser = cursor.fetchall()[0]
+
+        print("Found card:", foundCard)
+        print("Buyer:", myuser)
+        sellerID = foundCard['UserID']
+        myID = myuser['UserID']
+
+        if sellerID == myID:
+            await interaction.response.send_message(f"You cannot buy this card because you are the seller.")
+            return
+
+        if myuser['Currency'] < foundCard['SalePrice']:
+            await interaction.response.send_message(f"You don't have enough {currencyName}.")
+            return
+
+        query = "UPDATE userdata SET Currency = Currency + %s WHERE UserID = '%s'"
+        cursor.execute(query, (foundCard['SalePrice'], sellerID))
+
+        query = "UPDATE userdata SET Currency = Currency - %s WHERE UserID = '%s'"
+        cursor.execute(query, (foundCard['SalePrice'], myID))
+
+        query = f"UPDATE cardinstances SET SalePrice = NULL, UserID = '{myID}' WHERE InstanceID = '{instanceid}' LIMIT 1"
+        cursor.execute(query)
+
+        mydb.commit()
+        await interaction.response.send_message("You just bought a card!")
+    except Exception as e:
+        await interaction.response.send_message("Error encountered")
+
+@bot.tree.command()
+async def currency_check(interaction: discord.Interaction):
+    discord_id = interaction.user.id
+    cursor.execute(f"SELECT Currency FROM userdata WHERE DiscordID = {discord_id}")
+    rows = cursor.fetchall()
+
+    if rows:
+        # If a record exists, return the existing UserID
+        amount = rows[0]["Currency"]
+    else:
+        # If no record exists, create a new record and return the new UserID
+        cursor.execute(f"INSERT INTO userdata (DiscordID) VALUES ({discord_id})")
+        mydb.commit()  # Commit the changes to the database
+        cursor.execute(f"SELECT Currency FROM userdata WHERE DiscordID = {discord_id}")
+        rows = cursor.fetchall()
+        amount = rows[0]["Currency"]
+
+    await interaction.response.send_message(f"You have {amount} {currencyName}.")
+
+@bot.tree.command()
+async def market_list(interaction: discord.Interaction, instanceid: int, price: int):
+    try:
+        myID = getID(interaction)
+        query = f"UPDATE cardinstances SET SalePrice = {price} WHERE InstanceID = {instanceid} AND UserID = {myID}"
+        cursor.execute(query)
+        mydb.commit()
+        await interaction.response.send_message(f"Card listed for sale for {price} {currencyName}.")
+    except Exception as e:
+        await interaction.response.send_message("Either the card was not found or you do not own it.")
+@bot.tree.command()
+async def market_delist(interaction: discord.Interaction, instanceid: int):
+    try:
+        myID = getID(interaction)
+        query =  f"UPDATE cardinstances SET SalePrice = NULL WHERE InstanceID = '{instanceid}' AND UserID = '{myID}'"
+        cursor.execute(query)
+        mydb.commit()
+        await interaction.response.send_message(f"Card delisted.")
+
+    except Exception as e:
+        await interaction.response.send_message("Either the card was not found or you do not own it.")
+
+@bot.tree.command()
+async def market_show(interaction: discord.Interaction, cardname : str):
+    # Get the user ID of the person who called the command
+    myID = getID(interaction)
+
+    # Query the database to find card instances
+    query = (
+        f"SELECT * "
+        f"FROM cardinstances "
+        f"JOIN cards ON cardinstances.CardID = cards.CardID "
+        f"JOIN userdata ON cardinstances.UserID = userdata.UserID "
+        f"WHERE cards.Name = '{cardname}' "
+        #f"AND cardinstances.UserID != {myID} "
+        f"AND cardinstances.SalePrice IS NOT NULL "
+        f"ORDER BY cardinstances.SalePrice"
+    )
+    page = 0
+    cursor.execute(query)
+    card_instances = cursor.fetchall()
+    print(card_instances)
+    mystring = await getMarketString(page, card_instances)
+
+
+    # Display the results
+    if card_instances:
+        if((len(card_instances) - 1) // 10) == 0:
+            await interaction.response.send_message(mystring)
+        else:
+            await interaction.response.send_message(mystring, view=PrevNextButtonMarket(page, card_instances))
+    else:
+        await interaction.response.send_message(f"No card instances found for {cardname}")
+
+@market_show.autocomplete("cardname")
+async def market_show_autocompletion(
+    interaction: discord.Interaction,
+    cardname: str
+) -> typing.List[app_commands.Choice[str]]:
+    data = []
+    #print(allcards)
+    for card_choice in allcards:
+        card_name = card_choice['Name']
+        data.append(app_commands.Choice(name=card_name, value=card_name))
+    return data
+
+
+
+class PrevNextButtonMarket(discord.ui.View):
+    def __init__(self, page: int, rows):
+        super().__init__()
+        self.page = page
+        self.rows = rows
+        self.max_page = (len(rows) - 1) // 10
+    @discord.ui.button(label="<-", custom_id="prev_button")
+    async def on_prev_button(self,  interaction: discord.Interaction, button: discord.ui.Button):
+        self.page -= 1
+        if self.page < 0:
+            self.page = 0
+        await interaction.message.edit(content=getMarketString(self.page, self.rows), view=self)
+        await interaction.response.defer()
+
+
+    @discord.ui.button(label="->", custom_id="next_button")
+    async def on_next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page += 1
+        if self.page > self.max_page:
+            self.page = self.max_page
+        await interaction.message.edit(content=getMarketString(self.page, self.rows), view=self)
+        await interaction.response.defer()
+
+
+async def getMarketString(page: int, rows):
+    max_page = (len(rows) - 1) // 10
+    start_index = page * 10
+    end_index = start_index + 10
+
+    # Check if any cards were found
+    if rows:
+        # Prepare the response message
+        response_message = f"Page {page + 1} of {max_page + 1}\n```\n"
+        response_message += "{:<10} {:<10} {:<30} {:<10} {:<20} {:<10} {:<10}\n".format(
+            "InstanceID", "CardID", "Name", "Price", "Seller", "Version", "Card number"
+        )
+
+        for row in rows[start_index:end_index]:
+            instance_id = row["InstanceID"]
+            card_id = row["CardID"]
+            card_name = row["Name"]
+            sale_price = row["SalePrice"] if row["SalePrice"] else "Not for sale"
+            version = "Foil" if row["Foil"] else "Regular"
+            card_number = row["InstanceCount"]
+            # Fetch the username based on DiscordID
+            discord_id = row["DiscordID"]
+            try:
+                seller = await bot.fetch_user(int(discord_id))
+                seller_name = seller.name
+            except discord.NotFound:
+                seller_name = "Unknown"
+
+            response_message += "{:<10} {:<10} {:<30} {:<10} {:<20} {:<10} {:<10}\n".format(
+                instance_id, card_id, card_name, sale_price, seller_name, version, card_number
+            )
+
+        response_message += "```"
+        return response_message
+    return None
+
+
+
 def main() -> None:
+    #getCardList()
     bot.run(token=TOKEN)
 
 # Press the green button in the gutter to run the script.
