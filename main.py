@@ -5,13 +5,16 @@ import mysql.connector
 import random
 import datetime
 import typing
+import io
+import base64
 from io import BytesIO
 from dotenv import load_dotenv
-from discord import Intents, Client, Message, app_commands
+from discord import Intents, Client, Message, app_commands, Embed
 from discord.ext import commands
 from responses import get_response
-from PIL import Image
+from PIL import Image, ImageOps, ImageFont, ImageDraw, ImageFilter
 from discord.utils import format_dt
+#from matplotlib import font_manager
 # This is a sample Python script.
 
 # Press Shift+F10 to execute it or replace it with your code.
@@ -38,6 +41,8 @@ mydb = mysql.connector.connect(
 )
 cursor = mydb.cursor(dictionary = True)
 
+hiddenchannelname = 'hiddenchannel'
+
 @bot.event
 async def on_ready():
     print(f'{bot.user} is now running!')
@@ -46,8 +51,137 @@ async def on_ready():
         synced = await bot.tree.sync()
 
         print(f"Synced {len(synced)} command(s)")
+        global hiddenchannel
+        hiddenchannel = getHiddenchannel()
     except Exception as e:
         print(e)
+
+def getHiddenchannel():
+    for guild in bot.guilds:
+        for channel in guild.channels:
+            if channel.name == hiddenchannelname:
+                return channel
+                print("found hidden channel.")
+                break
+    print("channel not found")
+    return None
+
+@bot.tree.command(name = "open_pack")
+async def openpack(interaction: discord.Interaction):
+    user_id = getID(interaction)
+
+    cursor.execute("SELECT NextPull FROM userdata WHERE UserID = %s", (user_id,))
+    next_pull_time = cursor.fetchone()
+    current_time = datetime.datetime.now()
+    """
+    if next_pull_time and next_pull_time["NextPull"] and next_pull_time["NextPull"] != "":
+
+        print(next_pull_time["NextPull"])
+        next_pull_time = datetime.datetime.strptime(next_pull_time["NextPull"], "%Y-%m-%d %H:%M:%S")
+
+        discord_timestamp = format_dt(next_pull_time, style='R')
+
+        if current_time < next_pull_time:
+            await interaction.response.send_message(
+                f"Your next card is available {discord_timestamp}."
+            )
+            return None
+
+    new_next_pull_time = (current_time + datetime.timedelta(minutes=10)).replace(microsecond=0)
+    
+    # cursor.execute("UPDATE userdata SET NextPull = %s WHERE UserID = %s", (new_next_pull_time, user_id))
+    cursor.execute("UPDATE userdata SET NextPull = %s, Currency = Currency + 10 WHERE UserID = %s",
+                   (new_next_pull_time, user_id))
+    mydb.commit()
+    """
+    pack_structure = ["Common","Common","Common","Uncommon","Uncommon","Rare"]
+    pack_structure[5] = "Mythic Rare" if random.random() < 0.2 else "Rare"
+
+    packLength = len(pack_structure)
+    cards = [None] * packLength
+    print("cardlength " + str(len(cards)))
+    print("packlength " + str(len(pack_structure)))
+    foilValues = [None] * packLength
+    cardImages = [None] * packLength
+    index = 0
+    for rarity in pack_structure:
+
+        card = get_random_card(rarity)
+        card_id = card["CardID"]
+        cards[index] = card
+        #if card_id is None:
+        #    return None
+        foil_value = 1 if random.random() < 0.1 else 0
+        foilValues[index] = foil_value
+        # foil_value = 1
+        # Construct the SQL query with placeholders
+        query = (
+            "INSERT INTO `cardinstances` "
+            "(`InstanceID`, `UserID`, `CardID`, `Foil`, `InstanceCount`) "
+            "VALUES (NULL, %s, %s, %s, '')"
+        )
+
+        cursor.execute(query, (user_id, card_id, foil_value))
+
+        last_insert_id_query = "SELECT InstanceCount FROM `cardinstances` WHERE `InstanceID` = LAST_INSERT_ID()"
+        cursor.execute(last_insert_id_query)
+        newInstanceCount = cursor.fetchone()['InstanceCount']
+        cardImages[index] = getCardImage(card, foilValues[index], newInstanceCount)
+
+        index += 1
+    max_images_per_line = 3
+    widths, heights = zip(*(i.size for i in cardImages))
+
+    max_height = max(heights)
+    max_width = max(widths)*max_images_per_line
+
+    # Calculate number of lines needed
+    num_lines = -(-len(cardImages) // max_images_per_line)
+
+    packImage = Image.new('RGBA', (max_width, max_height * num_lines))
+
+    x_offset, y_offset = 0, 0
+    image_count = 0
+
+    for im in cardImages:
+        packImage.paste(im, (x_offset, y_offset))
+        x_offset += im.size[0]
+
+        image_count += 1
+
+        # Check if we need to start a new line
+        if image_count >= max_images_per_line:
+            y_offset += max_height
+            x_offset = 0
+            image_count = 0
+
+
+
+    packImage.save('test.png')
+    mydb.commit()
+
+    myEmbed = await imageToEmbed(packImage, "AAAAAND OPEN!", "you got some cards!")
+
+    await interaction.response.send_message("Here ya go!", view=OpenPackButton(myEmbed))
+
+
+class OpenPackButton(discord.ui.View):
+    def __init__(self, myEmbed):
+        super().__init__()
+        self.myEnb = myEmbed
+
+    @discord.ui.button(label="OPEN PACK!", custom_id="open_button")
+    async def open_button(self,  interaction: discord.Interaction, button: discord.ui.Button):
+
+        await interaction.message.edit(embed=self.myEnb, view=None)
+        await interaction.response.defer()
+
+async def imageToEmbed(image, title, description, colour = 0xa84342):
+    imgmessage = await hiddenchannel.send(file=discord.File(cardToBuffer(image), filename="AWMCards.png"))
+    image_url = imgmessage.attachments[0].url
+    new_embed = Embed(title=title, description=description, color=colour)
+    new_embed.set_image(url=image_url)
+    return new_embed
 
 @bot.tree.command(name = "pull")
 async def pull(interaction: discord.Interaction):
@@ -83,7 +217,7 @@ async def pull(interaction: discord.Interaction):
     if card_id is None:
         return None
     foil_value = 1 if random.random() < 0.2 else 0
-    foil_value = 1
+    #foil_value = 1
     # Construct the SQL query with placeholders
     query = (
         "INSERT INTO `cardinstances` "
@@ -102,6 +236,7 @@ async def pull(interaction: discord.Interaction):
 
     cardImage = getCardImage(card, foil_value)
 
+
     cardname = card['Name']
     cardNum = inserted_record['InstanceCount']
     flavourText = card['FlavourText']
@@ -112,8 +247,9 @@ async def pull(interaction: discord.Interaction):
     if foil_value == 1:
         messageText += " Ooh, its also foil! Nice!"
     messageText += f"\n *{flavourText}*"
-    await interaction.response.send_message(messageText,
-                                            file=discord.File(cardImage, filename="Congratulations.png"))
+    myEmbed = await imageToEmbed(cardImage, "You got a card!", messageText)
+
+    await interaction.response.send_message(embed=myEmbed)
 
 @bot.tree.command(name="mycards")
 async def mycards(interaction: discord.Interaction):
@@ -125,6 +261,13 @@ async def mycards(interaction: discord.Interaction):
         await interaction.response.send_message(getOwnedCardsString(page, listownedcards(userID)))
     else:
         await interaction.response.send_message(getOwnedCardsString(page, listownedcards(userID)), view=PrevNextButton(page, rows))
+
+def cardToBuffer(cardImage):
+    image_buffer = BytesIO()
+    cardImage.save(image_buffer, format="PNG")
+    image_buffer.seek(0)
+    return image_buffer
+
 
 
 class PrevNextButton(discord.ui.View):
@@ -227,8 +370,10 @@ async def viewcard(interaction: discord.Interaction, cardname: str):
     cursor.execute(query)
     foundCard = cursor.fetchone()
     messageText = f"{foundCard['Name']} \n *{foundCard['FlavourText']}*"
-    await interaction.response.send_message(messageText,
-                                            file=discord.File(getCardImage(foundCard,0), filename="CardFound.png"))
+
+    myEmbed = await imageToEmbed(getCardImage(foundCard, 0), "Card found", messageText)
+
+    await interaction.response.send_message(embed=myEmbed)
 
 @viewcard.autocomplete("cardname")
 async def viewcard_autocompletion(
@@ -242,25 +387,26 @@ async def viewcard_autocompletion(
         data.append(app_commands.Choice(name=card_name, value=card_name))
     return data
 
-def get_random_card():
+def get_random_card(rarity = None):
+    if rarity == None:
     # Define the probabilities for each rarity level
-    rarity_probabilities = {
-        "Common": 0.5,
-        "Uncommon": 0.35,
-        "Rare": 0.1,
-        "Mythic Rare": 0.5,
-    }
+        rarity_probabilities = {
+            "Common": 0.5,
+            "Uncommon": 0.35,
+            "Rare": 0.1,
+            "Mythic Rare": 0.05,
+        }
 
-    # Get a random value to determine the rarity
-    rarity_roll = random.random()
+        # Get a random value to determine the rarity
+        rarity_roll = random.random()
 
-    # Determine the rarity based on the roll
-    rarity = ""
-    for rarity_level, probability in rarity_probabilities.items():
-        if rarity_roll < probability:
-            rarity = rarity_level
-            break
-        rarity_roll -= probability
+        # Determine the rarity based on the roll
+        rarity = ""
+        for rarity_level, probability in rarity_probabilities.items():
+            if rarity_roll < probability:
+                rarity = rarity_level
+                break
+            rarity_roll -= probability
 
     # Query for a random card of the determined rarity
     query = f"SELECT * FROM cards WHERE Rarity = '{rarity}' AND Active = 1 ORDER BY RAND() LIMIT 1"
@@ -276,33 +422,79 @@ def get_random_card():
     else:
         return None
 
-def getCardImage(theCard, foil : int):
+def getCardImage(theCard, foil : int, instanceNum = None):
     print(theCard)
     try:
         cardImage = theCard["Picture"]
-        background = Image.open(os.path.join(ROOT_DIR, f"Images\\{cardImage}"))
+        background = Image.open(os.path.join(ROOT_DIR, f"Images\\{cardImage}")).convert("RGBA")
     except Exception as e:
-        background = Image.open(os.path.join(ROOT_DIR, f"Images\\MissingArt.png"))
+        background = Image.open(os.path.join(ROOT_DIR, f"Images\\MissingArt.png")).convert("RGBA")
     try:
+        #underlay = Image.open(os.path.join(ROOT_DIR, f"Overlays\\underLayer.png"))
+        #overlay = Image.open(os.path.join(ROOT_DIR, f"Overlays\\overLayer.png"))
+        mask = Image.open(os.path.join(ROOT_DIR, f"Overlays\\Mask.png"))
+
+        background = Image.composite(background, Image.new("RGBA", background.size, (0, 0, 0, 0)), mask)
         rarityLayer = getCardRarityImage(theCard["Rarity"])
         factionLayer = getCardFactionImage(theCard["Faction"])
+        #background.paste(underlay, (0, 0), underlay)
         background.paste(rarityLayer, (0, 0), rarityLayer)
         background.paste(factionLayer, (0, 0), factionLayer)
 
-        if(foil == 1):
+        #print(font_manager.get_font_names())
+
+        width, height = background.size
+
+        draw = ImageDraw.Draw(background)
+        fontpath = os.path.join(ROOT_DIR, 'spectrashell.otf')
+        myFont = ImageFont.truetype(fontpath, 38)
+        myFont2 = ImageFont.truetype(fontpath, 20)
+
+
+
+        if instanceNum != None:
+            cardname = f"{theCard["Name"]} #{instanceNum}"
+        else:
+            cardname = theCard["Name"]
+
+        textwidth, textheight = get_text_dimensions(cardname, myFont)
+        textwidth2, textheight2 = get_text_dimensions(theCard["Faction"], myFont2)
+
+        draw.text(((width/2) - (textwidth/2), height-82), cardname, (0, 0, 0), font=myFont)
+        draw.text( ((width/2) - (textwidth2/2), height-105), theCard["Faction"], (0, 0, 0), font=myFont2)
+        #background.paste(overlay, (0, 0), overlay)
+
+        if theCard["Illustrator"] is not None and theCard["Illustrator"] != "":
+            illusFont = ImageFont.truetype(fontpath, 12)
+            text = f"Illus. {theCard["Illustrator"]}"
+            illusW, illusH = get_text_dimensions(text, illusFont)
+            txt = Image.new('L', (illusW, illusH))
+            d = ImageDraw.Draw(txt)
+            d.text((0, 0), text, font=illusFont, fill=255)
+            w = txt.rotate(90, expand=1)
+            background.paste(ImageOps.colorize(w, (0,0,0), (255,255,255)), (437+illusH,height-60 - illusW),  w)
+
+
+        if (foil == 1):
             path = os.path.join(ROOT_DIR, 'Overlays\\')
             foilLayer = Image.open(os.path.join(path, 'Foil.png'))
 
-            background.paste(foilLayer, (0,0), foilLayer)
+            background.paste(foilLayer, (0, 0), foilLayer)
 
 
-        image_buffer = BytesIO()
-        background.save(image_buffer, format="PNG")
-        image_buffer.seek(0)
-        return image_buffer
+        return background
     except Exception as e:
         print(e)
         return None
+
+def get_text_dimensions(text_string, font):
+    # https://stackoverflow.com/a/46220683/9263761
+    ascent, descent = font.getmetrics()
+
+    text_width = font.getmask(text_string).getbbox()[2]
+    text_height = font.getmask(text_string).getbbox()[3] + descent
+
+    return (text_width, text_height)
 
 def getCardRarityImage(cardRarity):
     outimage = None
@@ -359,7 +551,7 @@ def getID(interaction: discord.Interaction) -> int:
 @bot.tree.command()
 async def viewmycard(interaction: discord.Interaction, instanceid: int):
     query = (
-        "SELECT ci.CardID, ci.InstanceID, c.Name,c.FlavourText, ci.Foil, ci.InstanceCount, c.Rarity, c.Picture , c.Faction "
+        "SELECT ci.CardID, ci.InstanceID, c.Name,c.FlavourText, ci.Foil, ci.InstanceCount, c.Rarity, c.Picture , c.Faction, c.Illustrator "
         "FROM cardinstances ci "
         "JOIN cards c ON ci.CardID = c.CardID "
         "WHERE ci.InstanceID = %s"
@@ -368,10 +560,14 @@ async def viewmycard(interaction: discord.Interaction, instanceid: int):
     cursor.execute(query, (instanceid,))
 
     foundCard = cursor.fetchone()
+    if foundCard == None:
+        await interaction.response.send_message("Card not found")
+        return
 
     print(foundCard)
     messageText = f"{foundCard['Name']} \n *{foundCard['FlavourText']}*"
-    await interaction.response.send_message(messageText,file=discord.File(getCardImage(foundCard, foundCard['Foil']), filename="CardFound.png"))
+    myEmbed = await imageToEmbed(getCardImage(foundCard, foundCard['Foil'], foundCard['InstanceCount']), "Card found", messageText)
+    await interaction.response.send_message(embed=myEmbed)
 
 @bot.tree.command()
 async def market_buy(interaction: discord.Interaction, instanceid: int):
@@ -418,26 +614,52 @@ async def market_buy(interaction: discord.Interaction, instanceid: int):
         await interaction.response.send_message("Error encountered")
 
 @bot.tree.command()
-async def currency_check(interaction: discord.Interaction):
+async def collection(interaction: discord.Interaction):
     discord_id = interaction.user.id
-    cursor.execute(f"SELECT Currency FROM userdata WHERE DiscordID = {discord_id}")
+    cursor.execute(f"SELECT Currency, UserID FROM userdata WHERE DiscordID = {discord_id}")
     rows = cursor.fetchall()
 
     if rows:
         # If a record exists, return the existing UserID
         amount = rows[0]["Currency"]
+
+
     else:
         # If no record exists, create a new record and return the new UserID
         cursor.execute(f"INSERT INTO userdata (DiscordID) VALUES ({discord_id})")
         mydb.commit()  # Commit the changes to the database
-        cursor.execute(f"SELECT Currency FROM userdata WHERE DiscordID = {discord_id}")
+        cursor.execute(f"SELECT Currency, UserID FROM userdata WHERE DiscordID = {discord_id}")
         rows = cursor.fetchall()
         amount = rows[0]["Currency"]
 
-    await interaction.response.send_message(f"You have {amount} {currencyName}.")
+    user_id = rows[0]["UserID"]
+    total_unique_cards_query = f"SELECT COUNT(DISTINCT CardID) AS cardcount FROM cardinstances WHERE UserID = '{user_id}'"
+    cursor.execute(total_unique_cards_query)
+
+    total_unique_cards = cursor.fetchone()['cardcount']
+
+        # Query to count unique cards by faction
+    faction_unique_cards_query = (
+        f"SELECT Faction, COUNT(DISTINCT cardinstances.CardID) AS FactionCount "
+        f"FROM cardinstances "
+        f"JOIN cards ON cardinstances.CardID = cards.CardID "
+        f"WHERE UserID = '{user_id}' "
+        f"GROUP BY Faction"
+    )
+    cursor.execute(faction_unique_cards_query)
+    faction_unique_cards = cursor.fetchall()
+    print(faction_unique_cards)
+    outstring = f"You have {amount} {currencyName}. \n"
+    outstring += f"Your collection progress is {total_unique_cards} out of {len(allcards)} \n"
+    outstring += f"Your card count by faction is: \n"
+
+    for entry in faction_unique_cards:
+        outstring += f"{entry['Faction']} : {entry['FactionCount']} \n"
+
+    await interaction.response.send_message(outstring)
 
 @bot.tree.command()
-async def market_list(interaction: discord.Interaction, instanceid: int, price: int):
+async def market_sell(interaction: discord.Interaction, instanceid: int, price: int):
     try:
         myID = getID(interaction)
         query = f"UPDATE cardinstances SET SalePrice = {price} WHERE InstanceID = {instanceid} AND UserID = {myID}"
