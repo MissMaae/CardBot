@@ -160,7 +160,7 @@ async def openpack(interaction: discord.Interaction):
     packImage.save('test.png')
     mydb.commit()
 
-    myEmbed = await imageToEmbed(packImage, "AAAAAND OPEN!", "you got some cards!")
+    myEmbed = await imageToEmbed(packImage, "AAAAAND OPEN!", "you got some cards!", rarityToColour(pack_structure[5]))
 
     await interaction.response.send_message("Here ya go!", view=OpenPackButton(myEmbed))
 
@@ -247,7 +247,7 @@ async def pull(interaction: discord.Interaction):
     if foil_value == 1:
         messageText += " Ooh, its also foil! Nice!"
     messageText += f"\n *{flavourText}*"
-    myEmbed = await imageToEmbed(cardImage, "You got a card!", messageText)
+    myEmbed = await imageToEmbed(cardImage, "You got a card!", messageText, rarityToColour(card['Rarity']))
 
     await interaction.response.send_message(embed=myEmbed)
 
@@ -371,9 +371,11 @@ async def viewcard(interaction: discord.Interaction, cardname: str):
     foundCard = cursor.fetchone()
     messageText = f"{foundCard['Name']} \n *{foundCard['FlavourText']}*"
 
-    myEmbed = await imageToEmbed(getCardImage(foundCard, 0), "Card found", messageText)
+    myEmbed = await imageToEmbed(getCardImage(foundCard, 0), "Card found", messageText, rarityToColour(foundCard['Rarity']))
 
     await interaction.response.send_message(embed=myEmbed)
+
+
 
 @viewcard.autocomplete("cardname")
 async def viewcard_autocompletion(
@@ -426,9 +428,9 @@ def getCardImage(theCard, foil : int, instanceNum = None):
     print(theCard)
     try:
         cardImage = theCard["Picture"]
-        background = Image.open(os.path.join(ROOT_DIR, f"Images\\{cardImage}")).convert("RGBA")
+        background = Image.open(os.path.join(ROOT_DIR, f"Images\\{cardImage}"))#.convert("RGBA")
     except Exception as e:
-        background = Image.open(os.path.join(ROOT_DIR, f"Images\\MissingArt.png")).convert("RGBA")
+        background = Image.open(os.path.join(ROOT_DIR, f"Images\\MissingArt.png"))#.convert("RGBA")
     try:
         #underlay = Image.open(os.path.join(ROOT_DIR, f"Overlays\\underLayer.png"))
         #overlay = Image.open(os.path.join(ROOT_DIR, f"Overlays\\overLayer.png"))
@@ -450,13 +452,14 @@ def getCardImage(theCard, foil : int, instanceNum = None):
         myFont = ImageFont.truetype(fontpath, 38)
         myFont2 = ImageFont.truetype(fontpath, 20)
 
-
-
         if instanceNum != None:
-            cardname = f"{theCard["Name"]} #{instanceNum}"
-        else:
-            cardname = theCard["Name"]
+            instanceFont = ImageFont.truetype(fontpath, 15)
+            instancenumText = f"#{instanceNum}"
+            #instancenumText = f"#10000000000"
+            instextwidth, instextheight = get_text_dimensions(instancenumText, instanceFont)
+            draw.text((width - instextwidth - 25, height - 50), instancenumText, (0, 0, 0), font=instanceFont)
 
+        cardname = theCard["Name"]
         textwidth, textheight = get_text_dimensions(cardname, myFont)
         textwidth2, textheight2 = get_text_dimensions(theCard["Faction"], myFont2)
 
@@ -478,9 +481,8 @@ def getCardImage(theCard, foil : int, instanceNum = None):
         if (foil == 1):
             path = os.path.join(ROOT_DIR, 'Overlays\\')
             foilLayer = Image.open(os.path.join(path, 'Foil.png'))
-
-            background.paste(foilLayer, (0, 0), foilLayer)
-
+            #background.paste(foilLayer, (0, 0), foilLayer)
+            background = Image.alpha_composite(background, foilLayer)
 
         return background
     except Exception as e:
@@ -533,6 +535,21 @@ def getCardFactionImage(cardFaction):
     return outimage
 
 
+def rarityToColour(rarity):
+    outcolour = None
+    match rarity:
+        case 'Common':
+            outcolour = 0x000000
+        case 'Uncommon':
+            outcolour = 0xa2c5d6
+        case 'Rare':
+            outcolour = 0xceb370
+        case 'Mythic Rare':
+            outcolour = 0xb02911
+        case _:
+            outcolour = None
+    return outcolour
+
 def getID(interaction: discord.Interaction) -> int:
     discord_id = interaction.user.id
     cursor.execute(f"SELECT UserID FROM userdata WHERE DiscordID = {discord_id}")
@@ -566,7 +583,7 @@ async def viewmycard(interaction: discord.Interaction, instanceid: int):
 
     print(foundCard)
     messageText = f"{foundCard['Name']} \n *{foundCard['FlavourText']}*"
-    myEmbed = await imageToEmbed(getCardImage(foundCard, foundCard['Foil'], foundCard['InstanceCount']), "Card found", messageText)
+    myEmbed = await imageToEmbed(getCardImage(foundCard, foundCard['Foil'], foundCard['InstanceCount']), "Card found", messageText, rarityToColour(foundCard['Rarity']))
     await interaction.response.send_message(embed=myEmbed)
 
 @bot.tree.command()
