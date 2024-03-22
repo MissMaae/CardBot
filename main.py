@@ -530,6 +530,8 @@ def getCardFactionImage(cardFaction):
             outimage = Image.open(os.path.join(path, 'Event.png'))
         case 'Community':
             outimage = Image.open(os.path.join(path, 'Community.png'))
+        case 'Location':
+            outimage = Image.open(os.path.join(path, 'Location.png'))
         case _:
             outimage = None
     return outimage
@@ -564,6 +566,22 @@ def getID(interaction: discord.Interaction) -> int:
         mydb.commit()  # Commit the changes to the database
         return cursor.lastrowid
 
+async def getIDMember(user: discord.Member) -> int:
+    discord_id = user.id
+    if discord_id is None:
+        return None
+
+    cursor.execute(f"SELECT UserID FROM userdata WHERE DiscordID = {discord_id}")
+    rows = cursor.fetchall()
+
+    if rows:
+        # If a record exists, return the existing UserID
+        return rows[0]["UserID"]
+    else:
+        # If no record exists, create a new record and return the new UserID
+        cursor.execute(f"INSERT INTO userdata (DiscordID) VALUES ({discord_id})")
+        mydb.commit()  # Commit the changes to the database
+        return cursor.lastrowid
 
 @bot.tree.command()
 async def viewmycard(interaction: discord.Interaction, instanceid: int):
@@ -585,6 +603,35 @@ async def viewmycard(interaction: discord.Interaction, instanceid: int):
     messageText = f"{foundCard['Name']} \n *{foundCard['FlavourText']}*"
     myEmbed = await imageToEmbed(getCardImage(foundCard, foundCard['Foil'], foundCard['InstanceCount']), "Card found", messageText, rarityToColour(foundCard['Rarity']))
     await interaction.response.send_message(embed=myEmbed)
+
+@bot.tree.command()
+async def givecard(interaction: discord.Interaction, instanceid: int, recipient: discord.Member):
+    try:
+        myID = getID(interaction)
+        recipientID = await getIDMember(recipient)
+
+        if(recipientID == None):
+            await interaction.response.send_message("User not found.")
+            return
+
+        if recipientID == myID:
+            await interaction.response.send_message("You cannot give yourself cards.")
+            return
+        query = f"SELECT * FROM cardinstances WHERE InstanceID = '{instanceid}' AND UserID = '{myID}'"
+        cursor.execute(query)
+        foundCard = cursor.fetchall()
+        print(foundCard)
+        if(len(foundCard) == 0):
+            await interaction.response.send_message("Either the instance could not be found or you do not own it.")
+            return
+
+        query = f"UPDATE cardinstances SET SalePrice = NULL, UserID = '{recipientID}' WHERE InstanceID = '{instanceid}' AND UserID = '{myID}' LIMIT 1"
+        cursor.execute(query)
+        mydb.commit()
+
+        await interaction.response.send_message(f"Success! {recipient} now owns the card with instanceID {instanceid}.")
+    except Exception as e:
+        await interaction.response.send_message("Error.")
 
 @bot.tree.command()
 async def market_buy(interaction: discord.Interaction, instanceid: int):
