@@ -24,7 +24,11 @@ load_dotenv()
 TOKEN: Final[str] = os.getenv('DISCORD_TOKEN')
 print(TOKEN)
 
+#==== THESE ARE CUSTOMIZABLE ASPECTS OF THE BOT ====
 currencyName = "screamcoin"
+hiddenchannelname = 'hiddenchannel'
+pulltimedelay = 12
+#===================================================
 
 intents: Intents = discord.Intents.all()
 #intents: Intents = Intents.default()
@@ -41,7 +45,7 @@ mydb = mysql.connector.connect(
 )
 cursor = mydb.cursor(dictionary = True)
 
-hiddenchannelname = 'hiddenchannel'
+
 
 @bot.event
 async def on_ready():
@@ -73,7 +77,7 @@ async def openpack(interaction: discord.Interaction):
     cursor.execute("SELECT NextPull FROM userdata WHERE UserID = %s", (user_id,))
     next_pull_time = cursor.fetchone()
     current_time = datetime.datetime.now()
-    """
+
     if next_pull_time and next_pull_time["NextPull"] and next_pull_time["NextPull"] != "":
 
         print(next_pull_time["NextPull"])
@@ -87,13 +91,13 @@ async def openpack(interaction: discord.Interaction):
             )
             return None
 
-    new_next_pull_time = (current_time + datetime.timedelta(minutes=10)).replace(microsecond=0)
+    new_next_pull_time = (current_time + datetime.timedelta(hours=pulltimedelay)).replace(microsecond=0)
     
     # cursor.execute("UPDATE userdata SET NextPull = %s WHERE UserID = %s", (new_next_pull_time, user_id))
     cursor.execute("UPDATE userdata SET NextPull = %s, Currency = Currency + 10 WHERE UserID = %s",
                    (new_next_pull_time, user_id))
     mydb.commit()
-    """
+
     pack_structure = ["Common","Common","Common","Uncommon","Uncommon","Rare"]
     pack_structure[5] = "Mythic Rare" if random.random() < 0.2 else "Rare"
 
@@ -183,6 +187,7 @@ async def imageToEmbed(image, title, description, colour = 0xa84342):
     new_embed.set_image(url=image_url)
     return new_embed
 
+"""
 @bot.tree.command(name = "pull")
 async def pull(interaction: discord.Interaction):
     user_id = getID(interaction)
@@ -250,7 +255,7 @@ async def pull(interaction: discord.Interaction):
     myEmbed = await imageToEmbed(cardImage, "You got a card!", messageText, rarityToColour(card['Rarity']))
 
     await interaction.response.send_message(embed=myEmbed)
-
+"""
 @bot.tree.command(name="mycards")
 async def mycards(interaction: discord.Interaction):
     page = 0
