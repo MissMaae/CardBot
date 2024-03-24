@@ -3,6 +3,7 @@ import os
 import discord
 import mysql.connector
 import random
+import webbrowser
 import datetime
 import typing
 import asyncio
@@ -29,6 +30,7 @@ print(TOKEN)
 currencyName = "screamcoin"
 hiddenchannelname = 'hiddenchannel'
 pulltimedelay = 12
+coinsinpack = 10
 #===================================================
 
 intents: Intents = discord.Intents.all()
@@ -109,7 +111,7 @@ async def openpack(interaction: discord.Interaction):
         new_next_pull_time = (current_time + datetime.timedelta(hours=pulltimedelay)).replace(microsecond=0) #Update pull time based off settings
 
         # cursor.execute("UPDATE userdata SET NextPull = %s WHERE UserID = %s", (new_next_pull_time, user_id))
-        cursor.execute("UPDATE userdata SET NextPull = %s, Currency = Currency + 10 WHERE UserID = %s",
+        cursor.execute(f"UPDATE userdata SET NextPull = %s, Currency = Currency + {coinsinpack} WHERE UserID = %s",
                        (new_next_pull_time, user_id))
         mydb.commit()
 
@@ -182,6 +184,7 @@ async def openpack(interaction: discord.Interaction):
         myEmbed = await imageToEmbed(packImage, "AAAAAND OPEN!", "you got some cards!", rarityToColour(pack_structure[5]))
 
         await interaction.response.send_message("Here ya go!", view=OpenPackButton(myEmbed))
+
     except Exception as e:
         await interaction.response.send_message("Error")
 
@@ -205,9 +208,26 @@ async def imageToEmbed(image, title, description, colour = 0xa84342): #Takes an 
     image_url = imgmessage.attachments[0].url
     print(image_url)
     new_embed = Embed(title=title, description=description, color=colour)
+    new_embed.set_thumbnail(url=image_url)
     new_embed.set_image(url=image_url)
     print(new_embed.image)
     return new_embed
+
+async def embedNotLoaded(interaction, embed):
+    myURL = embed.image.url
+    await interaction.response.send_message("Thinking...", view=ViewInBrowserButton(myURL))
+    if (not myURL is None) and (not myURL ==""):
+        maxRetries = 10
+        retrycount = 0
+        while embed.image.height == 0 and embed.image.width == 0 and retrycount < maxRetries:
+            await asyncio.sleep(1)
+            embed.set_image(url=myURL)
+            retrycount += 1
+        if retrycount < maxRetries:
+            await interaction.message.edit(view=None)
+    else:
+        print("Embed with no image")
+    return embed
 
 """
 @bot.tree.command(name = "pull")
@@ -390,7 +410,11 @@ async def viewcard(interaction: discord.Interaction, cardname: str):
 
         myEmbed = await imageToEmbed(getCardImage(foundCard, 0), "Card found", messageText, rarityToColour(foundCard['Rarity']))
 
-        await interaction.response.send_message(embed=myEmbed)
+        if myEmbed.image.height == 0 and myEmbed.image.width == 0:
+            embed = await embedNotLoaded(interaction,myEmbed)
+            await interaction.message.edit(embed=embed)
+        else:
+            await interaction.response.send_message(embed=myEmbed)
     except Exception as e:
         await interaction.response.send_message("Error")
 
@@ -621,7 +645,12 @@ async def viewmycard(interaction: discord.Interaction, instanceid: int):
         print(foundCard)
         messageText = f"{foundCard['Name']} \n *{foundCard['FlavourText']}*"
         myEmbed = await imageToEmbed(getCardImage(foundCard, foundCard['Foil'], foundCard['InstanceCount']), "Card found", messageText, rarityToColour(foundCard['Rarity']))
-        await interaction.response.send_message(embed=myEmbed)
+
+        if myEmbed.image.height == 0 and myEmbed.image.width == 0:
+            embed = await embedNotLoaded(interaction,myEmbed)
+            await interaction.message.edit(embed=embed, view=None)
+        else:
+            await interaction.response.send_message(embed=myEmbed)
     except Exception as e:
         await interaction.response.send_message("Error")
 
@@ -840,6 +869,16 @@ class PrevNextButtonMarket(discord.ui.View):
             self.page = self.max_page
         await interaction.message.edit(content=getMarketString(self.page, self.rows), view=self)
         await interaction.response.defer()
+
+
+class ViewInBrowserButton(discord.ui.View):
+    def __init__(self, url):
+        super().__init__()
+        self.url = url
+
+    @discord.ui.button(label="View in browser", custom_id="viewInBrowser")
+    async def on_prev_button(self,  interaction: discord.Interaction, button: discord.ui.Button):
+        webbrowser.open(self.url)
 
 
 async def getMarketString(page: int, rows):
