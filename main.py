@@ -63,15 +63,27 @@ async def on_ready():
         print(e)
 
 def getHiddenchannel():
+    print("looking for hidden channel")
     for guild in bot.guilds:
-        for channel in guild.channels:
-            if channel.name == hiddenchannelname:
-                return channel
-                print("found hidden channel.")
-                break
+        # Look for a channel with the given name
+        channel = discord.utils.get(guild.text_channels, name=hiddenchannelname)
+        if channel:
+            print("found hidden channel.")
+            return channel
     print("channel not found")
     return None
 
+
+"""
+   for guild in bot.guilds:
+       for channel in guild.channels:
+           if channel.name == hiddenchannelname:
+               return channel
+               print("found hidden channel.")
+               break
+   print("channel not found")
+   return None
+   """
 @bot.tree.command(name = "open_pack")
 async def openpack(interaction: discord.Interaction):
     try:
@@ -185,10 +197,16 @@ class OpenPackButton(discord.ui.View): #This is the button that shows the pack
         await interaction.response.defer()
 
 async def imageToEmbed(image, title, description, colour = 0xa84342): #Takes an image, poops it out in the hidden channel, returns the imbed
-    imgmessage = await hiddenchannel.send(file=discord.File(cardToBuffer(image), filename="AWMCards.png"))
+    if hiddenchannel == None:
+        mychannel = await getHiddenchannel()
+        imgmessage = mychannel.send(file=discord.File(cardToBuffer(image), filename="AWMCards.png"))
+    else:
+        imgmessage = await hiddenchannel.send(file=discord.File(cardToBuffer(image), filename="AWMCards.png"))
     image_url = imgmessage.attachments[0].url
+    print(image_url)
     new_embed = Embed(title=title, description=description, color=colour)
     new_embed.set_image(url=image_url)
+    print(new_embed.image)
     return new_embed
 
 """
@@ -585,18 +603,19 @@ async def getIDMember(user: discord.Member) -> int:
 @bot.tree.command()
 async def viewmycard(interaction: discord.Interaction, instanceid: int):
     try:
+        myID = getID(interaction)
         query = (
             "SELECT ci.CardID, ci.InstanceID, c.Name,c.FlavourText, ci.Foil, ci.InstanceCount, c.Rarity, c.Picture , c.Faction, c.Illustrator "
             "FROM cardinstances ci "
             "JOIN cards c ON ci.CardID = c.CardID "
             "WHERE ci.InstanceID = %s"
-
+            " AND UserID = %s"
         )
-        cursor.execute(query, (instanceid,))
+        cursor.execute(query, (instanceid,myID,))
 
         foundCard = cursor.fetchone()
         if foundCard == None:
-            await interaction.response.send_message("Card not found")
+            await interaction.response.send_message("Card not found or you don't own it")
             return
 
         print(foundCard)

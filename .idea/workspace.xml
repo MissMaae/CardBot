@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="28b93e9c-33dc-42c5-adec-abc94509d0fc" name="Changes" comment="Added some trycatch">
+    <list default="true" id="28b93e9c-33dc-42c5-adec-abc94509d0fc" name="Changes" comment="Made buy lock the thread to prevent sillyness that might occur">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
@@ -170,7 +170,15 @@
       <option name="project" value="LOCAL" />
       <updated>1711228576517</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="Made buy lock the thread to prevent sillyness that might occur">
+      <option name="closed" value="true" />
+      <created>1711239851881</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1711239851881</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -195,6 +203,7 @@
     <MESSAGE value="Added givecard" />
     <MESSAGE value="Disabled pull, added pulltimedelay setting" />
     <MESSAGE value="Added some trycatch" />
-    <option name="LAST_COMMIT_MESSAGE" value="Added some trycatch" />
+    <MESSAGE value="Made buy lock the thread to prevent sillyness that might occur" />
+    <option name="LAST_COMMIT_MESSAGE" value="Made buy lock the thread to prevent sillyness that might occur" />
   </component>
 </project>
