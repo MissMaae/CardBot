@@ -5,6 +5,7 @@ import mysql.connector
 import random
 import datetime
 import typing
+import asyncio
 import io
 import base64
 from io import BytesIO
@@ -35,6 +36,7 @@ intents: Intents = discord.Intents.all()
 #intents.message_content = True # NOQA
 #client: Client = Client(intents=intents)
 bot: commands.Bot = commands.Bot(command_prefix="!", intents=intents)
+lock = asyncio.Lock()
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 mydb = mysql.connector.connect(
@@ -635,47 +637,48 @@ async def givecard(interaction: discord.Interaction, instanceid: int, recipient:
 
 @bot.tree.command()
 async def market_buy(interaction: discord.Interaction, instanceid: int):
-    try:
+    async with lock:
+        try:
 
-        query = f"SELECT * FROM cardinstances WHERE InstanceID = '{instanceid}' AND SalePrice IS NOT NULL"
-        cursor.execute(query)
-        foundCard = cursor.fetchall()[0]
+            query = f"SELECT * FROM cardinstances WHERE InstanceID = '{instanceid}' AND SalePrice IS NOT NULL"
+            cursor.execute(query)
+            foundCard = cursor.fetchall()[0]
 
-        if not foundCard:
-            await interaction.response.send_message("A card was not found or the card is not for sale.")
-            return None
+            if not foundCard:
+                await interaction.response.send_message("A card was not found or the card is not for sale.")
+                return None
 
-        discord_id = interaction.user.id
-        query = cursor.execute(f"SELECT * FROM userdata WHERE DiscordID = '{discord_id}' LIMIT 1")
-        cursor.execute(query)
-        myuser = cursor.fetchall()[0]
+            discord_id = interaction.user.id
+            query = cursor.execute(f"SELECT * FROM userdata WHERE DiscordID = '{discord_id}' LIMIT 1")
+            cursor.execute(query)
+            myuser = cursor.fetchall()[0]
 
-        print("Found card:", foundCard)
-        print("Buyer:", myuser)
-        sellerID = foundCard['UserID']
-        myID = myuser['UserID']
+            print("Found card:", foundCard)
+            print("Buyer:", myuser)
+            sellerID = foundCard['UserID']
+            myID = myuser['UserID']
 
-        if sellerID == myID:
-            await interaction.response.send_message(f"You cannot buy this card because you are the seller.")
-            return
+            if sellerID == myID:
+                await interaction.response.send_message(f"You cannot buy this card because you are the seller.")
+                return
 
-        if myuser['Currency'] < foundCard['SalePrice']:
-            await interaction.response.send_message(f"You don't have enough {currencyName}.")
-            return
+            if myuser['Currency'] < foundCard['SalePrice']:
+                await interaction.response.send_message(f"You don't have enough {currencyName}.")
+                return
 
-        query = "UPDATE userdata SET Currency = Currency + %s WHERE UserID = '%s'"
-        cursor.execute(query, (foundCard['SalePrice'], sellerID))
+            query = "UPDATE userdata SET Currency = Currency + %s WHERE UserID = '%s'"
+            cursor.execute(query, (foundCard['SalePrice'], sellerID))
 
-        query = "UPDATE userdata SET Currency = Currency - %s WHERE UserID = '%s'"
-        cursor.execute(query, (foundCard['SalePrice'], myID))
+            query = "UPDATE userdata SET Currency = Currency - %s WHERE UserID = '%s'"
+            cursor.execute(query, (foundCard['SalePrice'], myID))
 
-        query = f"UPDATE cardinstances SET SalePrice = NULL, UserID = '{myID}' WHERE InstanceID = '{instanceid}' LIMIT 1"
-        cursor.execute(query)
+            query = f"UPDATE cardinstances SET SalePrice = NULL, UserID = '{myID}' WHERE InstanceID = '{instanceid}' LIMIT 1"
+            cursor.execute(query)
 
-        mydb.commit()
-        await interaction.response.send_message("You just bought a card!")
-    except Exception as e:
-        await interaction.response.send_message("Error encountered")
+            mydb.commit()
+            await interaction.response.send_message("You just bought a card!")
+        except Exception as e:
+            await interaction.response.send_message("Error encountered")
 
 @bot.tree.command()
 async def collection(interaction: discord.Interaction):
