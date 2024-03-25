@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="28b93e9c-33dc-42c5-adec-abc94509d0fc" name="Changes" comment="Made it so that only the owner of the card can show it off">
+    <list default="true" id="28b93e9c-33dc-42c5-adec-abc94509d0fc" name="Changes" comment="Added a failsafe incase the embeds fail to load. May or may not work">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
@@ -22,6 +22,20 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;MissMaae&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">
+    <option name="selectedUrlAndAccountId">
+      <UrlAndAccount>
+        <option name="accountId" value="a752014f-4d20-4a13-9ac3-f5375655d4b2" />
+        <option name="url" value="https://github.com/MissMaae/AWMCards.git" />
+      </UrlAndAccount>
+    </option>
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 7
@@ -186,7 +200,15 @@
       <option name="project" value="LOCAL" />
       <updated>1711242232532</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="Added a failsafe incase the embeds fail to load. May or may not work">
+      <option name="closed" value="true" />
+      <created>1711292213184</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1711292213184</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -213,6 +235,7 @@
     <MESSAGE value="Added some trycatch" />
     <MESSAGE value="Made buy lock the thread to prevent sillyness that might occur" />
     <MESSAGE value="Made it so that only the owner of the card can show it off" />
-    <option name="LAST_COMMIT_MESSAGE" value="Made it so that only the owner of the card can show it off" />
+    <MESSAGE value="Added a failsafe incase the embeds fail to load. May or may not work" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added a failsafe incase the embeds fail to load. May or may not work" />
   </component>
 </project>

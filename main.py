@@ -182,8 +182,9 @@ async def openpack(interaction: discord.Interaction):
         mydb.commit()
 
         myEmbed = await imageToEmbed(packImage, "AAAAAND OPEN!", "you got some cards!", rarityToColour(pack_structure[5]))
-
-        await interaction.response.send_message("Here ya go!", view=OpenPackButton(myEmbed))
+        packEmbed = Embed(colour=0xa84342)
+        packEmbed.set_image(url="https://i.imgur.com/X8KwhO4.png")
+        await interaction.response.send_message("Here ya go!",embed = packEmbed, view=OpenPackButton(myEmbed))
 
     except Exception as e:
         await interaction.response.send_message("Error")
@@ -208,7 +209,7 @@ async def imageToEmbed(image, title, description, colour = 0xa84342): #Takes an 
     image_url = imgmessage.attachments[0].url
     print(image_url)
     new_embed = Embed(title=title, description=description, color=colour)
-    new_embed.set_thumbnail(url=image_url)
+    new_embed.set_thumbnail(url="https://i.imgur.com/1vdEHLQ.png")
     new_embed.set_image(url=image_url)
     print(new_embed.image)
     return new_embed
