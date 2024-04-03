@@ -24,10 +24,14 @@ from discord.utils import format_dt
 
 load_dotenv()
 TOKEN: Final[str] = os.getenv('DISCORD_TOKEN')
+PACK_IMAGE = os.getenv('PACK_IMAGE')
+THUMBNAIL = os.getenv('THUMBNAIL')
 print(TOKEN)
+print(PACK_IMAGE)
+print(THUMBNAIL)
 
 #==== THESE ARE CUSTOMIZABLE ASPECTS OF THE BOT ====
-currencyName = "screamcoin"
+currencyName = "coins"
 hiddenchannelname = 'hiddenchannel'
 pulltimedelay = 12
 coinsinpack = 10
@@ -183,7 +187,7 @@ async def openpack(interaction: discord.Interaction):
 
         myEmbed = await imageToEmbed(packImage, "AAAAAND OPEN!", "you got some cards!", rarityToColour(pack_structure[5]))
         packEmbed = Embed(colour=0xa84342)
-        packEmbed.set_image(url="https://i.imgur.com/X8KwhO4.png")
+        packEmbed.set_image(url=PACK_IMAGE)
         await interaction.response.send_message("Here ya go!",embed = packEmbed, view=OpenPackButton(myEmbed))
 
     except Exception as e:
@@ -209,7 +213,7 @@ async def imageToEmbed(image, title, description, colour = 0xa84342): #Takes an 
     image_url = imgmessage.attachments[0].url
     print(image_url)
     new_embed = Embed(title=title, description=description, color=colour)
-    new_embed.set_thumbnail(url="https://i.imgur.com/1vdEHLQ.png")
+    new_embed.set_thumbnail(url=THUMBNAIL)
     new_embed.set_image(url=image_url)
     print(new_embed.image)
     return new_embed
